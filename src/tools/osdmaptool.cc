@@ -36,12 +36,15 @@ void usage()
   cout << "   --clobber               allows osdmaptool to overwrite <mapfilename> if it already exists" << std::endl;
   cout << "   --export-crush <file>   write osdmap's crush map to <file>" << std::endl;
   cout << "   --import-crush <file>   replace osdmap's crush map with <file>" << std::endl;
+  cout << "   --adjust-crush-weight <osdid:weight>[,<osdid:weight,...] " << std::endl;
   cout << "   --health                dump health checks" << std::endl;
   cout << "   --test-map-pgs [--pool <poolid>] [--pg_num <pg_num>] [--range-first <first> --range-last <last>] map all pgs" << std::endl;
   cout << "   --test-map-pgs-dump [--pool <poolid>] [--range-first <first> --range-last <last>] map all pgs" << std::endl;
   cout << "   --test-map-pgs-dump-all [--pool <poolid>] [--range-first <first> --range-last <last>] map all pgs to osds" << std::endl;
   cout << "   --mark-up-in            mark osds up and in (but do not persist)" << std::endl;
   cout << "   --mark-out <osdid>      mark an osd as out (but do not persist)" << std::endl;
+  cout << "   --mark-up <osdid>       mark an osd as up (but do not persist)" << std::endl;
+  cout << "   --mark-in <osdid>       mark an osd as in (but do not persist)" << std::endl;
   cout << "   --with-default-pool     include default pool when creating map" << std::endl;
   cout << "   --clear-temp            clear pg_temp and primary_temp" << std::endl;
   cout << "   --test-random           do random placements" << std::endl;
@@ -128,13 +131,15 @@ int main(int argc, const char **argv)
   int pgp_bits = 6;
   bool clobber = false;
   bool modified = false;
-  std::string export_crush, import_crush, test_map_pg, test_map_object;
+  std::string export_crush, import_crush, test_map_pg, test_map_object, adjust_crush_weight;
   bool test_crush = false;
   int range_first = -1;
   int range_last = -1;
   int pool = -1;
   bool mark_up_in = false;
   int marked_out = -1;
+  int marked_up = -1;
+  int marked_in = -1;
   bool clear_temp = false;
   bool test_map_pgs = false;
   bool test_map_pgs_dump = false;
@@ -199,6 +204,10 @@ int main(int argc, const char **argv)
       mark_up_in = true;
     } else if (ceph_argparse_witharg(args, i, &val, "--mark-out", (char*)NULL)) {
       marked_out = std::stoi(val);
+    } else if (ceph_argparse_witharg(args, i, &val, "--mark-up", (char*)NULL)) {
+      marked_up  = std::stod(val);
+    } else if (ceph_argparse_witharg(args, i, &val, "--mark-in", (char*)NULL)) {
+      marked_in  = std::stod(val);
     } else if (ceph_argparse_flag(args, i, "--clear-temp", (char*)NULL)) {
       clear_temp = true;
     } else if (ceph_argparse_flag(args, i, "--test-map-pgs", (char*)NULL)) {
@@ -245,6 +254,8 @@ int main(int argc, const char **argv)
         cerr << err.str() << std::endl;
         exit(EXIT_FAILURE);
       }
+    } else if (ceph_argparse_witharg(args, i, &val, err, "--adjust-crush-weight", (char*)NULL)) {
+        adjust_crush_weight = val;
     } else {
       ++i;
     }
@@ -341,7 +352,9 @@ int main(int argc, const char **argv)
     for (int i=0; i<n; i++) {
       osdmap.set_state(i, osdmap.get_state(i) | CEPH_OSD_UP);
       osdmap.set_weight(i, CEPH_OSD_IN);
-      osdmap.crush->adjust_item_weightf(g_ceph_context, i, 1.0);
+      if ( osdmap.crush->get_item_weight(i) == 0 ) {
+        osdmap.crush->adjust_item_weightf(g_ceph_context, i, 1.0);
+      }
     }
   }
 
@@ -351,6 +364,42 @@ int main(int argc, const char **argv)
     osdmap.set_state(id, osdmap.get_state(id) | CEPH_OSD_UP);
     osdmap.set_weight(id, CEPH_OSD_OUT);
     osdmap.crush->adjust_item_weightf(g_ceph_context, id, 1.0);
+  }
+
+  if (marked_up >=0 && marked_up < osdmap.get_max_osd()) {
+    cout << "marking OSD@" << marked_up << " as up" << std::endl;
+    int id = marked_up;
+    osdmap.set_state(id, osdmap.get_state(id) | CEPH_OSD_UP);
+  }
+
+  if (marked_in >=0 && marked_in < osdmap.get_max_osd()) {
+    cout << "marking OSD@" << marked_up << " as up" << std::endl;
+    int id = marked_up;
+    osdmap.set_weight(id, CEPH_OSD_IN);
+  }
+
+  if (!adjust_crush_weight.empty()) {
+    //gotta be <osd.id>:<new_weight>[,<osd.id>:<new_weight>,<...>]
+    std::string osd_to_osd_delimiter = ",";
+    size_t pos = 0;
+    while (1) {
+      pos = adjust_crush_weight.find(osd_to_osd_delimiter);
+
+      std::string osd_to_osd = adjust_crush_weight.substr(0,pos);
+      std::string osd_to_weight_delimiter = ":";
+
+      size_t internal_pos = osd_to_osd.find(osd_to_weight_delimiter);
+      int osd_to_reweight = std::stoi(osd_to_osd.substr(0, internal_pos));
+      osd_to_osd = osd_to_osd.erase(0, internal_pos + osd_to_weight_delimiter.length());
+      float new_weight = std::stof(osd_to_osd);
+
+      osdmap.crush->adjust_item_weightf(g_ceph_context, osd_to_reweight, new_weight);
+      adjust_crush_weight.erase(0, pos + osd_to_osd_delimiter.length());
+      std::cout << "Adjusted osd." << osd_to_reweight << " CRUSH weight to " << new_weight << std::endl;
+
+      if (pos == std::string::npos)
+        break;
+    }
   }
 
   if (clear_temp) {
@@ -729,7 +778,7 @@ skip_upmap:
       export_crush.empty() && import_crush.empty() && 
       test_map_pg.empty() && test_map_object.empty() &&
       !test_map_pgs && !test_map_pgs_dump && !test_map_pgs_dump_all &&
-      !upmap && !upmap_cleanup) {
+      adjust_crush_weight.empty() && !upmap && !upmap_cleanup) {
     cerr << me << ": no action specified?" << std::endl;
     usage();
   }
