@@ -37,6 +37,7 @@ void usage()
   cout << "   --export-crush <file>   write osdmap's crush map to <file>" << std::endl;
   cout << "   --import-crush <file>   replace osdmap's crush map with <file>" << std::endl;
   cout << "   --adjust-crush-weight <osdid:weight>[,<osdid:weight,...] " << std::endl;
+  cout << "   --crush-save            saves adjust-crush-weight changes to osdmap" << std::endl;
   cout << "   --health                dump health checks" << std::endl;
   cout << "   --test-map-pgs [--pool <poolid>] [--pg_num <pg_num>] [--range-first <first> --range-last <last>] map all pgs" << std::endl;
   cout << "   --test-map-pgs-dump [--pool <poolid>] [--range-first <first> --range-last <last>] map all pgs" << std::endl;
@@ -132,6 +133,7 @@ int main(int argc, const char **argv)
   bool clobber = false;
   bool modified = false;
   std::string export_crush, import_crush, test_map_pg, test_map_object, adjust_crush_weight;
+  bool crush_save = false;
   bool test_crush = false;
   int range_first = -1;
   int range_last = -1;
@@ -256,6 +258,9 @@ int main(int argc, const char **argv)
       }
     } else if (ceph_argparse_witharg(args, i, &val, err, "--adjust-crush-weight", (char*)NULL)) {
         adjust_crush_weight = val;
+    } else if (ceph_argparse_flag(args, i, "--crush-save", (char*)NULL)) {
+        crush_save = true;
+    }
     } else {
       ++i;
     }
@@ -399,6 +404,13 @@ int main(int argc, const char **argv)
 
       if (pos == std::string::npos)
         break;
+    }
+    if (crush_save) {
+      OSDMap::Incremental inc;
+      inc.fsid = osdmap.get_fsid();
+      inc.epoch = osdmap.get_epoch()+1;
+      osdmap.apply_incremental(inc);
+      modified = true;
     }
   }
 
