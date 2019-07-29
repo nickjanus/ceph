@@ -260,7 +260,6 @@ int main(int argc, const char **argv)
         adjust_crush_weight = val;
     } else if (ceph_argparse_flag(args, i, "--crush-save", (char*)NULL)) {
         crush_save = true;
-    }
     } else {
       ++i;
     }
