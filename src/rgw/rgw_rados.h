@@ -2310,7 +2310,7 @@ public:
   bool process_expire_objects();
   int defer_gc(void *ctx, const RGWBucketInfo& bucket_info, const rgw_obj& obj);
 
-  int process_lc();
+  int process_lc(const string& bucket_name = "");
   int list_lc_progress(const string& marker, uint32_t max_entries, map<string, int> *progress_map);
   
   int bucket_check_index(RGWBucketInfo& bucket_info,

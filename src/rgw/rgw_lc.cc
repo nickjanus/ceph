@@ -1182,7 +1182,7 @@ int RGWLC::list_lc_progress(const string& marker, uint32_t max_entries, map<stri
   return 0;
 }
 
-int RGWLC::process()
+int RGWLC::process(const string& bucket_name)
 {
   int max_secs = cct->_conf->rgw_lc_lock_max_time;
 
@@ -1190,7 +1190,7 @@ int RGWLC::process()
 
   for (int i = 0; i < max_objs; i++) {
     int index = (i + start) % max_objs;
-    int ret = process(index, max_secs);
+    int ret = process(index, max_secs, bucket_name);
     if (ret < 0)
       return ret;
   }
@@ -1198,12 +1198,12 @@ int RGWLC::process()
   return 0;
 }
 
-int RGWLC::process(int index, int max_lock_secs)
+int RGWLC::process(int index, int max_lock_secs, const string& bucket_name)
 {
   rados::cls::lock::Lock l(lc_index_lock_name);
+  pair<string, int > entry;//string = :bucket_name:bucket_id ,int = LC_BUCKET_STATUS
   do {
     utime_t now = ceph_clock_now();
-    pair<string, int > entry;//string = bucket_name:bucket_id ,int = LC_BUCKET_STATUS
     if (max_lock_secs <= 0)
       return -EAGAIN;
 
@@ -1217,8 +1217,10 @@ int RGWLC::process(int index, int max_lock_secs)
       sleep(5);
       continue;
     }
-    if (ret < 0)
+    if (ret < 0) {
+      ldpp_dout(this, 0) << "RGWLC::process() failed to acquire lock" << obj_names[index] << dendl;
       return 0;
+    }
 
     cls_rgw_lc_obj_head head;
     ret = cls_rgw_lc_get_head(store->lc_pool_ctx, obj_names[index], head);
@@ -1229,43 +1231,74 @@ int RGWLC::process(int index, int max_lock_secs)
     }
 
     if(!if_already_run_today(head.start_date)) {
+      ldpp_dout(this, 20) << "RGWLC::process() initialize lc processing" << dendl;
       head.start_date = now;
       head.marker.clear();
       ret = bucket_lc_prepare(index);
       if (ret < 0) {
-      ldpp_dout(this, 0) << "RGWLC::process() failed to update lc object "
-          << obj_names[index] << ", ret=" << ret << dendl;
-      goto exit;
+        ldpp_dout(this, 0) << "RGWLC::process() failed to update lc object "
+            << obj_names[index] << ", ret=" << ret << dendl;
+        goto exit;
       }
     }
 
-    ret = cls_rgw_lc_get_next_entry(store->lc_pool_ctx, obj_names[index], head.marker, entry);
+    string marker = bucket_name.empty() ? head.marker : entry.first;
+    ret = cls_rgw_lc_get_next_entry(store->lc_pool_ctx, obj_names[index], marker, entry);
     if (ret < 0) {
       ldpp_dout(this, 0) << "RGWLC::process() failed to get obj entry "
           << obj_names[index] << dendl;
       goto exit;
     }
 
-    if (entry.first.empty())
-      goto exit;
-
-    entry.second = lc_processing;
-    ret = cls_rgw_lc_set_entry(store->lc_pool_ctx, obj_names[index],  entry);
-    if (ret < 0) {
-      ldpp_dout(this, 0) << "RGWLC::process() failed to set obj entry " << obj_names[index]
-          << " (" << entry.first << "," << entry.second << ")" << dendl;
+    if (entry.first.empty()) {
+      ldpp_dout(this, 20) << "RGWLC::process() finished scanning entries" << dendl;
       goto exit;
     }
 
-    head.marker = entry.first;
+    bool process_entry = true;
+    // Did the admin specify running on a specific bucket?
+    if (!bucket_name.empty()) {
+      vector<std::string> result;
+      boost::split(result, entry.first, boost::is_any_of(":"));
+      process_entry = bucket_name.compare(result[1]) == 0;
+    }
+
+    // Should this still be processed, or is it done for today?
+    switch (entry.second) {
+      case lc_uninitial: break;
+      case lc_processing: break;
+      case lc_failed: process_entry &= false;
+      case lc_complete: process_entry &= false;
+    }
+
+    if (process_entry) {
+      entry.second = lc_processing;
+      ret = cls_rgw_lc_set_entry(store->lc_pool_ctx, obj_names[index],  entry);
+      if (ret < 0) {
+        ldpp_dout(this, 0) << "RGWLC::process() failed to set obj entry " << obj_names[index]
+            << " (" << entry.first << "," << entry.second << ")" << dendl;
+        goto exit;
+      }
+    }
+
+    if (bucket_name.empty()) {
+      head.marker = entry.first;
+    }
     ret = cls_rgw_lc_put_head(store->lc_pool_ctx, obj_names[index],  head);
     if (ret < 0) {
       ldpp_dout(this, 0) << "RGWLC::process() failed to put head " << obj_names[index] << dendl;
       goto exit;
     }
     l.unlock(&store->lc_pool_ctx, obj_names[index]);
-    ret = bucket_lc_process(entry.first);
-    bucket_lc_post(index, max_lock_secs, entry, ret);
+    if (process_entry) {
+      ret = bucket_lc_process(entry.first);
+      bucket_lc_post(index, max_lock_secs, entry, ret);
+      ldpp_dout(this, 20) << "RGWLC::process() finished processing entry: "
+	<< entry.first << " " << entry.second << dendl;
+      if (!bucket_name.empty()) {
+        goto exit;
+      }
+    }
   }while(1);
 
 exit:
