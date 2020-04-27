@@ -1593,6 +1593,11 @@ int RGWBucketAdminOp::info(RGWRados *store, RGWBucketAdminOpState& op_state,
   string bucket_name = op_state.get_bucket_name();
   Formatter *formatter = flusher.get_formatter();
   flusher.start(0);
+  bool bucket_found = true;
+
+  if (!bucket_name.empty()) {
+    bucket_found = false;
+  }
 
   CephContext *cct = store->ctx();
 
@@ -1622,6 +1627,7 @@ int RGWBucketAdminOp::info(RGWRados *store, RGWBucketAdminOpState& op_state,
         if (!bucket_name.empty() && bucket_name != obj_name) {
           continue;
         }
+        bucket_found = true;
 
         if (show_stats)
           bucket_stats(store, user_id.tenant, obj_name, formatter);
@@ -1633,6 +1639,10 @@ int RGWBucketAdminOp::info(RGWRados *store, RGWBucketAdminOpState& op_state,
 
       flusher.flush();
     } while (is_truncated);
+
+    if !bucket_found {
+      return -ERR_NO_SUCH_BUCKET;
+    }
 
     formatter->close_section();
   } else if (!bucket_name.empty()) {
