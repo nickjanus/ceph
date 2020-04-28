@@ -17,6 +17,7 @@ import boto.s3.acl
 
 import requests
 import time
+import uuid
 
 from boto.connection import AWSAuthConnection
 from teuthology import misc as teuthology
@@ -475,15 +476,16 @@ def task(ctx, config):
     assert ret == 404
     assert out['Code'] == 'NoSuchBucket'
 
-    # reclaim it
-    key.delete()
+    # create another bucket for user1
+    connection.create_bucket(uuid.uuid4().hex)
 
-    # TESTCASE 'bucket unlink', 'bucket', 'unlink', 'unlink bucket from user', 'succeeds', 'unlinks bucket from user'
-    (ret, out) = rgwadmin_rest(admin_conn, ['bucket', 'unlink'], {'uid' : user1, 'bucket' : bucket_name})
-
+    # TESTCASE 'bucket-stats8', 'bucket', 'stats', 'bucket with user', 'succeeds', 'lists one bucket'
+    (ret, out) = rgwadmin_rest(admin_conn, ['bucket', 'info'], {'uid' : user1, 'bucket' : bucket_name})
     assert ret == 200
+    assert len(out) == 1
+    assert out[0] == bucket_name
 
-    # create a second user to link the bucket to
+    # create a second user
     (ret, out) = rgwadmin_rest(admin_conn,
             ['user', 'create'],
             {'uid' : user2,
@@ -493,6 +495,18 @@ def task(ctx, config):
             'max-buckets' : '1',
             })
 
+    assert ret == 200
+
+    # TESTCASE 'bucket-stats9', 'bucket', 'stats', 'bucket with wrong uid', 'fails', 'bucket not found error'
+    (ret, out) = rgwadmin_rest(admin_conn, ['bucket', 'info'], {'uid' : user2, 'bucket' : bucket_name})
+    assert ret == 404
+    assert out['Code'] == 'NoSuchBucket'
+
+    # reclaim it
+    key.delete()
+
+    # TESTCASE 'bucket unlink', 'bucket', 'unlink', 'unlink bucket from user', 'succeeds', 'unlinks bucket from user'
+    (ret, out) = rgwadmin_rest(admin_conn, ['bucket', 'unlink'], {'uid' : user1, 'bucket' : bucket_name})
     assert ret == 200
 
     # try creating an object with the first user before the bucket is relinked
