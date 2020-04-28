@@ -1593,10 +1593,11 @@ int RGWBucketAdminOp::info(RGWRados *store, RGWBucketAdminOpState& op_state,
   string bucket_name = op_state.get_bucket_name();
   Formatter *formatter = flusher.get_formatter();
   flusher.start(0);
-  bool bucket_found = true;
 
   if (!bucket_name.empty()) {
-    bucket_found = false;
+    ret = bucket.init(store, op_state);
+    if (ret < 0)
+      return ret;
   }
 
   CephContext *cct = store->ctx();
@@ -1611,6 +1612,10 @@ int RGWBucketAdminOp::info(RGWRados *store, RGWBucketAdminOpState& op_state,
     RGWUserBuckets buckets;
     string marker;
     bool is_truncated = false;
+    bool bucket_found = true;
+    if (!bucket_name.empty()) {
+      bucket_found = false;
+    }
 
     do {
       ret = rgw_read_user_buckets(store, op_state.get_user_id(), buckets,
