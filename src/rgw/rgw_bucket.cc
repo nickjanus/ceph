@@ -1589,6 +1589,7 @@ int RGWBucketAdminOp::limit_check(RGWRados *store,
 int RGWBucketAdminOp::info(RGWRados *store, RGWBucketAdminOpState& op_state,
                   RGWFormatterFlusher& flusher)
 {
+  RGWBucket bucket;
   int ret = 0;
   string bucket_name = op_state.get_bucket_name();
   Formatter *formatter = flusher.get_formatter();
@@ -1645,7 +1646,7 @@ int RGWBucketAdminOp::info(RGWRados *store, RGWBucketAdminOpState& op_state,
       flusher.flush();
     } while (is_truncated);
 
-    if !bucket_found {
+    if (!bucket_found) {
       return -ERR_NO_SUCH_BUCKET;
     }
 
