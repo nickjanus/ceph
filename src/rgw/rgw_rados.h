@@ -234,7 +234,7 @@ struct RGWCompressionInfo {
      decode(orig_size, bl);
      decode(blocks, bl);
      DECODE_FINISH(bl);
-  } 
+  }
   void dump(Formatter *f) const;
 };
 WRITE_CLASS_ENCODER(RGWCompressionInfo)
