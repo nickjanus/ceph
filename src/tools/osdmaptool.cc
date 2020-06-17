@@ -428,7 +428,7 @@ int main(int argc, const char **argv)
 
       osdmap.set_weight(osd_id, new_weight * CEPH_OSD_IN);
       adjust_osd_weight.erase(0, pos + osds_delimiter.length());
-      std::cout << "Adjusted osd." << osd_id << " CRUSH weight to " << new_weight << std::endl;
+      std::cout << "Adjusted osd." << osd_id << " OSD weight to " << new_weight << std::endl;
 
       if (pos == std::string::npos)
         break;
