@@ -484,8 +484,8 @@ class RGWLC : public DoutPrefixProvider {
   void initialize(CephContext *_cct, RGWRados *_store);
   void finalize();
 
-  int process();
-  int process(int index, int max_secs);
+  int process(const string& bucket_name = "");
+  int process(int index, int max_secs, const string& bucket_name = "");
   bool if_already_run_today(time_t& start_date);
   int list_lc_progress(const string& marker, uint32_t max_entries, map<string, int> *progress_map);
   int bucket_lc_prepare(int index);

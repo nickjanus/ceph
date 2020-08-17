@@ -9060,9 +9060,9 @@ int RGWRados::list_lc_progress(const string& marker, uint32_t max_entries, map<s
   return lc->list_lc_progress(marker, max_entries, progress_map);
 }
 
-int RGWRados::process_lc()
+int RGWRados::process_lc(const string& bucket_name)
 {
-  return lc->process();
+  return lc->process(bucket_name);
 }
 
 bool RGWRados::process_expire_objects()

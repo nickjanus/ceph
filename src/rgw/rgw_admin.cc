@@ -6779,7 +6779,8 @@ next:
   }
 
   if (opt_cmd == OPT_LC_PROCESS) {
-    int ret = store->process_lc();
+    int ret = store->process_lc(bucket_name);
+
     if (ret < 0) {
       cerr << "ERROR: lc processing returned error: " << cpp_strerror(-ret) << std::endl;
       return 1;
