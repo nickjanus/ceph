@@ -724,21 +724,23 @@ int RGWBucketReshard::execute(int num_shards, int max_op_entries,
   // best effort and don't report out an error; the lock isn't needed
   // at this point since all we're using a best effor to to remove old
   // shard objects
-  ret = store->clean_bucket_index(bucket_info, bucket_info.num_shards);
-  if (ret < 0) {
-    lderr(store->ctx()) << "Error: " << __func__ <<
-      " failed to clean up old shards; " <<
-      "RGWRados::clean_bucket_index returned " << ret << dendl;
-  }
+  if (store->ctx()->_conf.get_val<bool>("rgw_auto_remove_old_shards")) {
+    ret = store->clean_bucket_index(bucket_info, bucket_info.num_shards);
+      if (ret < 0) {
+        lderr(store->ctx()) << "Error: " << __func__ <<
+          " failed to clean up old shards; " <<
+          "RGWRados::clean_bucket_index returned " << ret << dendl;
+      }
 
-  ret = rgw_bucket_instance_remove_entry(store,
-					 bucket_info.bucket.get_key(),
-					 nullptr);
-  if (ret < 0) {
-    lderr(store->ctx()) << "Error: " << __func__ <<
-      " failed to clean old bucket info object \"" <<
-      bucket_info.bucket.get_key() <<
-      "\"created after successful resharding with error " << ret << dendl;
+      ret = rgw_bucket_instance_remove_entry(store,
+                                             bucket_info.bucket.get_key(),
+                                             nullptr);
+      if (ret < 0) {
+        lderr(store->ctx()) << "Error: " << __func__ <<
+          " failed to clean old bucket info object \"" <<
+          bucket_info.bucket.get_key() <<
+          "\"created after successful resharding with error " << ret << dendl;
+      }
   }
 
   ldout(store->ctx(), 1) << __func__ <<
