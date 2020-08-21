@@ -7202,6 +7202,9 @@ std::vector<Option> get_rgw_options() {
     .add_see_also("rgw_dmclock_metadata_res")
     .add_see_also("rgw_dmclock_metadata_wgt"),
 
+    Option("rgw_auto_remove_old_shards", Option::TYPE_BOOL, Option::LEVEL_ADVANCED)
+    .set_default(false)
+    .set_description("automatically remove old shard after a bucket reshard"),
   });
 }
 
