@@ -1055,19 +1055,18 @@ void RGWListBucket_ObjStore_S3v2::send_versioned_response()
       map<string, bool>::iterator pref_iter;
       for (pref_iter = common_prefixes.begin();
       pref_iter != common_prefixes.end(); ++pref_iter) {
-      s->formatter->open_array_section("CommonPrefixes");
-      if (encode_key) {
-        s->formatter->dump_string("Prefix", url_encode(pref_iter->first, false));
-      } else {
-        s->formatter->dump_string("Prefix", pref_iter->first);
+        s->formatter->open_array_section("CommonPrefixes");
+        if (encode_key) {
+          s->formatter->dump_string("Prefix", url_encode(pref_iter->first, false));
+        } else {
+          s->formatter->dump_string("Prefix", pref_iter->first);
+        }
       }
-
-      s->formatter->dump_int("KeyCount",objs.size());
+      s->formatter->dump_int("KeyCount",objs.size() + common_prefixes.size());
       if (start_after_exist) {
         s->formatter->dump_string("StartAfter", startAfter);
       }
       s->formatter->close_section();
-      }
     }
   
     s->formatter->close_section();
@@ -1139,7 +1138,7 @@ void RGWListBucket_ObjStore_S3v2::send_response()
   if (is_truncated && !next_marker.empty()) {
     s->formatter->dump_string("NextContinuationToken", next_marker.name);
   }
-  s->formatter->dump_int("KeyCount",objs.size());
+  s->formatter->dump_int("KeyCount",objs.size() + common_prefixes.size());
   if (start_after_exist) {
     s->formatter->dump_string("StartAfter", startAfter);
   }
