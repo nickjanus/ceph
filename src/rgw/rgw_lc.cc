@@ -270,7 +270,7 @@ bool RGWLC::if_already_run_today(time_t& start_date)
     return false;
 }
 
-int RGWLC::bucket_lc_prepare(const string shard_oid)
+int RGWLC::bucket_lc_prepare(const string& shard_oid)
 {
   map<string, int > entries;
 
@@ -1117,7 +1117,7 @@ int RGWLC::bucket_lc_process(string& shard_id)
   return ret;
 }
 
-int RGWLC::bucket_lc_post(const string shard_oid, int max_lock_sec, pair<string, int >& entry, int& result)
+int RGWLC::bucket_lc_post(const string& shard_oid, int max_lock_sec, pair<string, int >& entry, int& result)
 {
   utime_t lock_duration(cct->_conf->rgw_lc_lock_max_time, 0);
 
@@ -1211,7 +1211,7 @@ int RGWLC::process(rgw_bucket* bucket)
   return 0;
 }
 
-int RGWLC::process(const string shard_oid, int max_lock_secs, rgw_bucket* bucket)
+int RGWLC::process(const string& shard_oid, int max_lock_secs, rgw_bucket* bucket)
 {
   rados::cls::lock::Lock l(lc_index_lock_name);
   pair<string, int > entry;//string = :bucket_name:bucket_id ,int = LC_BUCKET_STATUS
