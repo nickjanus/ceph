@@ -485,12 +485,12 @@ class RGWLC : public DoutPrefixProvider {
   void finalize();
 
   int process(rgw_bucket* bucket = nullptr);
-  int process(const string& shard_oid, int max_secs, rgw_bucket* bucket = nullptr);
+  int process(const string shard_oid, int max_secs, rgw_bucket* bucket = nullptr);
   bool if_already_run_today(time_t& start_date);
   int list_lc_progress(const string& marker, uint32_t max_entries, map<string, int> *progress_map);
-  int bucket_lc_prepare(const string& shard_oid);
+  int bucket_lc_prepare(const string shard_oid);
   int bucket_lc_process(string& shard_id);
-  int bucket_lc_post(const string& shard_oid, int max_lock_sec, pair<string, int >& entry, int& result);
+  int bucket_lc_post(const string shard_oid, int max_lock_sec, pair<string, int >& entry, int& result);
   bool going_down();
   void start_processor();
   void stop_processor();
