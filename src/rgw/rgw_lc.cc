@@ -517,6 +517,13 @@ public:
       return false;
     }
     if (is_truncated && (obj_iter + 1)==objs.end()) {
+      ldout(store->ctx(), 0) << "marker updated: " << obj_iter->key.name << " " <<
+      obj_iter->key.instance << " " <<
+      obj_iter->meta.mtime << " " <<
+      obj_iter->meta.etag << " " <<
+      obj_iter->meta.user_data << " " <<
+      obj_iter->meta.accounted_size << " " <<
+      dendl;
       list_op.params.marker = obj_iter->key;
 
       int ret = fetch();
