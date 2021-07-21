@@ -9488,7 +9488,12 @@ int RGWRados::cls_bucket_list_unordered(RGWBucketInfo& bucket_info,
       // at this point either r >=0 or r == -ENOENT
       if (r >= 0) { // i.e., if r != -ENOENT
 	ldout(cct, 10) << "RGWRados::cls_bucket_list_unordered: got " <<
-	  dirent.key.name << "[" << dirent.key.instance << "]" << dendl;
+	  dirent.key.name << "[" << dirent.key.instance << "] " << 
+          dirent.meta.mtime << " " << 
+          dirent.meta.etag << " " <<
+          dirent.meta.user_data << " " <<
+          dirent.meta.accounted_size << " " <<
+          dendl;
 
 	if (count < num_entries) {
 	  marker = last_added_entry = dirent.key; // double assign

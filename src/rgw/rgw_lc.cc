@@ -779,7 +779,13 @@ public:
   bool check(lc_op_ctx& oc, ceph::real_time *exp_time) override {
     auto& o = oc.o;
     if (o.is_current()) {
-      ldout(oc.cct, 20) << __func__ << "(): key=" << o.key << ": current version, skipping" << dendl;
+      ldout(oc.cct, 20) << __func__ << "(): key=" << o.key.name <<
+      " " << o.key.instance << " " << 
+      o.meta.mtime << " " << 
+      o.meta.etag << " " <<
+      o.meta.user_data << " " <<
+      o.meta.accounted_size << " " <<
+      ": current version, skipping" << dendl;
       return false;
     }
 
